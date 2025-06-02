@@ -13,10 +13,16 @@ class Dealer:
 
 
     def deal_cards(self, players):
-        # Deal 11 cards to each player
+        # Deal 11 cards to each player  
+        # - improvement split and deal like in real game
         for player in players:
             player.hand = [self.draw_pile.pop() for _ in range(11)]
         # Start the discard pile with one card from the draw pile
         self.discard_pile.append(self.draw_pile.pop())
-        
+
+        self.potzo_cards = [
+            [self.draw_pile.pop() for _ in range(11)],
+            [self.draw_pile.pop() for _ in range(11)]
+        ]
+
         return [player.hand for player in players]

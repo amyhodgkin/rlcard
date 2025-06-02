@@ -77,8 +77,8 @@ class BurracoGame:
                         raise ValueError(f"Player {self.current_player} does not have card {card} to add to meld.")
 
                 # Add meld to player's melds
-                self.players[self.current_player].melds[meld_index].extend(meld_cards)
-                print(f"Player {self.current_player} added {meld_cards} to meld {meld_index}")
+                self.players[self.current_player].melds[meld_index].extend(cards_to_add)
+                print(f"Player {self.current_player} added {cards_to_add} to meld {meld_index}")
 
             elif isinstance(action, tuple) and action[0] == 'discard':
                 if self.has_discarded:
@@ -93,13 +93,21 @@ class BurracoGame:
                 print(f"Player {self.current_player} discarded card: {card}")
                 # advance to the next player after discarding
                 self.has_discarded = True
-                self.current_player = (self.current_player + 1) % len(self.players)
-                self.phase = 'draw'
-                self.has_discarded = False
             else:
                 raise ValueError("Invalid action during discard phase. Must be a discard action.")
 
+        #Log action
         self.history.append(action)
+
+        if self.check_potzo(self.current_player):
+            print(f"Player {self.current_player} can go to Potzo!")
+            self.go_to_potzo(self.current_player)
+            self.history.append(('potzo', self.current_player))
+
+        if self.has_discarded:
+            self.current_player = (self.current_player + 1) % len(self.players)
+            self.phase = 'draw'
+            self.has_discarded = False
         
         return self.get_state(self.current_player), self.current_player
 
@@ -152,6 +160,27 @@ class BurracoGame:
             return gaps <= 1
 
         return False
+    
+    def check_potzo(self, player_id):
+        """
+        Check if player can go to Potzo
+        Returns True if hand is empty and player hasn't gone to Potzo yet.
+        """
+        return not self.players[player_id].gone_to_potzo and len(self.players[player_id].hand) == 0
+    
+    def go_to_potzo(self, player_id):
+        """
+        Move player to Potzo
+        """
+        if not self.check_potzo(player_id):
+            raise ValueError(f"Player {player_id} cannot go to Potzo, not eligible or already gone.")
+        
+        # asign potzo cards - first available list in potzo_cards
+        potzo_cards = self.dealer.potzo_cards.pop(0)
+        self.players[player_id].hand.extend(potzo_cards)
+        self.players[player_id].gone_to_potzo = True
+
+        print(f"Player {player_id} has gone to Potzo!")
     
     def is_over(self):
         # TODO: Determine if game is over

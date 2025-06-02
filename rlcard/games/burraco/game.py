@@ -9,6 +9,7 @@ class BurracoGame:
         self.dealer = Dealer()
         self.current_player = 0
         self.phase = 'draw'
+        self.has_discarded = False
         self.history = []
 
     def init_game(self):
@@ -37,7 +38,52 @@ class BurracoGame:
             elif isinstance(action, tuple) and action[0] == 'discard':
                 raise ValueError("Must draw a card before discarding.")
         elif self.phase == 'discard':
-            if isinstance(action, tuple) and action[0] == 'discard':
+            if isinstance(action, tuple) and action[0] == 'meld':
+                if self.has_discarded:
+                    raise ValueError("Cannot meld after discarding.")
+                meld_cards = action[1]
+                # Validate meld legality
+                if not self.is_valid_meld(meld_cards):
+                    raise ValueError(f"Invalid meld: {meld_cards}")
+
+                # Remove meld cards from player's hand
+                player_hand = self.players[self.current_player].hand
+                for card in meld_cards:
+                    if card in player_hand:
+                        player_hand.remove(card)
+                    else:
+                        raise ValueError(f"Player {self.current_player} does not have card {card} to meld.")
+
+                # Add meld to player's melds
+                self.players[self.current_player].melds.append(meld_cards)
+                print(f"Player {self.current_player} melded: {meld_cards}")
+
+            elif isinstance(action, tuple) and action[0] == 'add_to_meld':
+                if self.has_discarded:
+                    raise ValueError("Cannot add to meld after discarding.")
+                meld_index = action[1]
+                cards_to_add = action[2] if len(action) > 2 else []
+                # Validate meld legality
+                full_meld = self.players[self.current_player].melds[meld_index] + cards_to_add
+                if not self.is_valid_meld(full_meld):
+                    raise ValueError(f"Invalid meld after adding cards: {full_meld}")
+
+                # Remove meld cards from player's hand
+                player_hand = self.players[self.current_player].hand
+                for card in cards_to_add:
+                    if card in player_hand:
+                        player_hand.remove(card)
+                    else:
+                        raise ValueError(f"Player {self.current_player} does not have card {card} to add to meld.")
+
+                # Add meld to player's melds
+                self.players[self.current_player].melds[meld_index].extend(meld_cards)
+                print(f"Player {self.current_player} added {meld_cards} to meld {meld_index}")
+
+            elif isinstance(action, tuple) and action[0] == 'discard':
+                if self.has_discarded:
+                    raise ValueError("Already discarded this turn.")
+                
                 card = action[1]
                 if card in self.players[self.current_player].hand:
                     self.players[self.current_player].hand.remove(card)
@@ -46,13 +92,14 @@ class BurracoGame:
                 self.dealer.discard_pile.append(card)
                 print(f"Player {self.current_player} discarded card: {card}")
                 # advance to the next player after discarding
+                self.has_discarded = True
                 self.current_player = (self.current_player + 1) % len(self.players)
                 self.phase = 'draw'
+                self.has_discarded = False
             else:
                 raise ValueError("Invalid action during discard phase. Must be a discard action.")
 
         self.history.append(action)
-        
         
         return self.get_state(self.current_player), self.current_player
 
@@ -66,8 +113,46 @@ class BurracoGame:
 
     def get_legal_actions(self):
         # TODO: Return legal actions for the current player
-        return ['draw']#, 'discard', 'meld']
+        return ['draw', 'discard', 'meld']
 
+    def is_wildcard(self, card):
+        return card.startswith('2') or card == 'JK'
+    
+    def is_valid_meld(self, cards): 
+        """
+        Currently supports groups (e.g. ['7C', '7D', '7H']) and runs (e.g. ['5H', '6H', '7H']).
+        Add wildcard logic later.
+        """
+        if len(cards) < 3:
+            return False
+
+        # Extract ranks and suits
+        ranks = [card[0] for card in cards if card != 'JK']
+        suits = [card[1] for card in cards if card != 'JK']
+
+        jokers = [card for card in cards if card == 'JK']
+        if len(jokers) > 1:
+            return False
+        
+        # Check set: all ranks same
+        if len(set(ranks)) == 1:
+            return True
+
+        # Check run: same suit, ranks consecutive
+        if len(set(suits)) == 1:
+            rank_order = "23456789TJQKA"
+            indices = sorted(rank_order.index(r) for r in ranks)
+            gaps = 0
+            for i in range(len(indices) - 1):
+                gap = indices[i + 1] - indices[i] - 1
+                if gap < 0:
+                    return False  # duplicate or out-of-order
+                gaps += gap
+            
+            return gaps <= 1
+
+        return False
+    
     def is_over(self):
         # TODO: Determine if game is over
         return False

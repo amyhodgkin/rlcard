@@ -3,6 +3,7 @@ import random
 class Dealer:
     def __init__(self):
         self.full_deck = [f"{rank}{suit}" for rank in "23456789TJQKA" for suit in "CDHS"] * 2  # Double deck for Burraco
+        self.full_deck += ['JK'] * 4  # Add 4 jokers for double deck
         self.draw_pile = []
         self.discard_pile = []
 

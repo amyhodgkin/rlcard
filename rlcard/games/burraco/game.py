@@ -41,6 +41,9 @@ class BurracoGame:
                 if self.has_discarded:
                     raise ValueError("Cannot meld after discarding.")
                 meld_cards = action[1]
+                # Check remaining cards in hand
+                if not self.check_can_meld(meld_cards):
+                    raise ValueError("Cannot meld, not enough valid cards left in hand ")
                 # Validate meld legality
                 if not self.is_valid_meld(meld_cards):
                     raise ValueError(f"Invalid meld: {meld_cards}")
@@ -62,13 +65,17 @@ class BurracoGame:
                     raise ValueError("Cannot add to meld after discarding.")
                 meld_index = action[1]
                 cards_to_add = action[2] if len(action) > 2 else []
+                # Validate meld only leads to end game if valid
+                # Check remaining cards in hand
+                if not self.check_can_meld(cards_to_add):
+                    raise ValueError("Cannot meld, not enough valid cards left in hand ")
+                
                 # Validate meld legality
                 full_meld = self.players[self.current_player].melds[meld_index] + cards_to_add
                 if not self.is_valid_meld(full_meld):
                     raise ValueError(f"Invalid meld after adding cards: {full_meld}")
 
                 # Remove meld cards from player's hand
-                player_hand = self.players[self.current_player].hand
                 for card in cards_to_add:
                     if card in player_hand:
                         player_hand.remove(card)
@@ -242,7 +249,37 @@ class BurracoGame:
 
         print(f"Player {player_id} has gone to Potzo!")
 
+    def check_can_meld(self,cards_to_meld):
+        """
+        Check if the current player can remove meld cards from their hand.
+        Returns True if player if allowed to remove meld cards from their hand.
+        If player has gone to Potzo, they can only remove meld cards if they have at least 2 cards left in hand, or are ready for end game
+        """
+        player = self.players[self.current_player]
+        hand = player.hand.copy()
+        print(hand)
+        hand_without_meld = hand.copy()
+        # Make sure all cards to be melded are actually in hand
+        for card in cards_to_meld:
+            if card not in hand:
+                return False
+            hand_without_meld.remove(card)
+        print(hand_without_meld)
+        if not player.gone_to_potzo:
+            return True # no restrictions on melding if player has not gone to Potzo
+        if len(hand_without_meld) >= 2:
+            return True # always okay to meld if player has at least 2 cards left in hand
+        if len(hand_without_meld) == 0:  # already gone to Potzo
+            return False # must be able to discard at least one card to end game
+        if len(hand_without_meld) == 1:
+            if hand_without_meld[0] == 'JK' or hand_without_meld[0][0] == '2':  # can not end on joker
+                return False
+            if any(len(meld) >= 7 for meld in player.melds): # can only end game if player has a meld of at least 7 cards
+                return True
+            return False
+        return False
 
+    
     def check_end_game(self):
         player_id = self.current_player
         player = self.players[player_id]

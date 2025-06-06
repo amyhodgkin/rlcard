@@ -58,6 +58,26 @@ def test_is_valid_meld():
     # Joker and 2C – invalid (too many wilds)
     assert not game.is_valid_meld(['3H', '4H', '6H', '2C', 'JK'])
 
+def test_check_can_meld():
+    game = BurracoGame()
+    player = game.players[0]
+    game.current_player = 0
+    player.gone_to_potzo = True
+    player.hand = ['3H', '4H', '5H']  # 3 cards, trying to meld all
+
+    # Should raise because it would leave 0 cards in hand
+    assert not game.check_can_meld(['3H', '4H', '5H'])
+
+    player.hand = ['3H', '4H', '5H', '2H']  # 4 cards, cant meld 3
+        # Should raise because it would leave 0 cards in hand
+    assert not game.check_can_meld(['3H', '4H', '5H'])
+
+    player.hand = ['3H', '4H', '5H', 'JK']  # 4 cards, can meld 3
+    assert not game.check_can_meld(['3H', '4H', '5H'])
+    
+    assert not game.check_can_meld(['6H','7H','8H'])  # 4 cards, can meld 3
+
 if __name__ == "__main__":
 
     test_is_valid_meld()
+    test_check_can_meld()

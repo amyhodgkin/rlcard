@@ -14,6 +14,7 @@ class BurracoGame:
 
     def init_game(self):
         self.dealer.shuffle()
+        self.dealer.deal_cards(self.players) 
         self.current_player = 0
         self.history = []
         return self.get_state(self.current_player), self.current_player
@@ -140,93 +141,72 @@ class BurracoGame:
         if len(cards) < 3:
             return False
 
+        if self._is_valid_set(cards):
+            return True
+
+        if self._is_valid_run(cards):
+            return True
+
+        return False 
+    
+    def _is_valid_set(self, cards):
+
         jokers = [c for c in cards if c == 'JK']
         twos = [c for c in cards if c[0] == '2']
         normal_cards = [c for c in cards if c not in jokers + twos]
-
-        if len(jokers) > 1:  # can only have one joker in a meld
-            return False
-        if len(twos) > 2:  # can have up to two twos (if only one is acting as a wildcard)
-            return False
         
+        if not normal_cards:
+            return False
+
         # Check set: all ranks same (ignoring jokers/twos acting as wildcards) - cant have meld of only jokers or twos
         ranks = [c[0] for c in normal_cards]
         if len(set(ranks)) == 1:
             # If all ranks are the same and only one wildcard, it's valid
             if len(jokers) + len(twos) <= 1:
                 return True
-            # If more than one wildcard, it's invalid
-            else:
-                return False
-
-        # Check run assuming 2s are natural cards
-        ranks = [c[0] for c in normal_cards + twos]
-        suits = [c[1] for c in normal_cards + twos]
-        if len(twos) <= 1: # check if one one two not acting as a wildcard
-            if len(set(suits)) == 1: 
-                rank_order = "A23456789TJQKA"  # Note: Ace low and high
-                indices = sorted(rank_order.index(r) for r in ranks)
-                
-                gaps = 0
-                for i in range(len(indices) - 1):
-                    gap = indices[i + 1] - indices[i] - 1
-                    if gap < 0:
-                        return False  # duplicate or out-of-order
-                    gaps += gap
-                
-                return gaps <= len(jokers)  # can fill gaps with up to one joker
+            
+        return False
+    
+    def _is_valid_run(self, cards):
+        rank_order = "A23456789TJQKA"  # Note: Ace low and high
         
-        ranks = [c[0] for c in normal_cards]
-        if len(twos) == 2: #check if one two as wild and one natural
-            if len(jokers) > 0:
-                return False
-            suits_no_twos = [c[1] for c in normal_cards]
-            # one must be a natural card, the other can be a wildcard
-            if len(set(suits)) <= 2:
-                if len(set(suits_no_twos)) != 1:
-                    return False # other cards must be of the same suit
-                # check that the two twos are not both wildcards
-                # check one two has the same suit as the other cards
-                else:
-                    meld_suit = suits_no_twos[0]
-                    if meld_suit not in [c[1] for c in twos]:
-                        return False
-                    else:  # add the matching two to the ranks and remove it from twos
-                        ranks_with_two = ranks + ["2"]
-                        rank_order = "A23456789TJQKA"  # Note: Ace low and high
-                        indices = sorted(rank_order.index(r) for r in ranks_with_two)
-                
-                        gaps = 0
-                        for i in range(len(indices) - 1):
-                            gap = indices[i + 1] - indices[i] - 1
-                            if gap < 0:
-                                return False  # duplicate or out-of-order
-                            gaps += gap
-                        
-                        return gaps <= 1  # can fill gaps with the remaining two
+        jokers = [c for c in cards if c == 'JK']
+        twos = [c for c in cards if c[0] == '2']
+        normal_cards = [c for c in cards if c not in jokers + twos]
 
-        # If above fails, treat 2s and jokers as wildcards and try to fill gaps
-        # Merge normal_cards only:
-        suits = [c[1] for c in normal_cards]
-        ranks = [c[0] for c in normal_cards]
-        # check only one wildcard
-        if len(jokers) + len(twos) > 1:
+        if not normal_cards:
             return False
-        if len(set(suits)) == 1:
-            rank_order = "A23456789TJQKA"
+        
+        n_wildcards = len(jokers) + len(twos)
+        # Check run assuming 2s are natural cards (if they fit)
+        ranks = [c[0] for c in normal_cards]
+        suits = [c[1] for c in normal_cards]
+        two_suits = [c[1] for c in twos]
+        
+        if len(set(suits)) != 1:
+            return False 
+        
+        if suits[0] in two_suits:
+            # add one two to the ranks and remove it from twos
+            n_wildcards_v1 = n_wildcards - 1
+
+            if n_wildcards_v1 <= 1:
+            # Check if the ranks form a valid run
+                ranks_v1 = ranks + ['2']  # Add one two to the ranks
+                indices = sorted(rank_order.index(r) for r in ranks_v1)
+                if len(indices) == len(set(indices)): # Check for duplicates
+                    gaps = (indices[-1] - indices[0] + 1) - len(indices)
+                    if gaps <= n_wildcards_v1:
+                        return True # Success! The meld is valid in this configuration.
+        
+        if n_wildcards <= 1:
             indices = sorted(rank_order.index(r) for r in ranks)
-
-            gaps = 0
-            for i in range(len(indices) - 1):
-                gap = indices[i + 1] - indices[i] - 1
-                if gap < 0:
-                    return False
-                gaps += gap
-
-            # Number of wildcards available is jokers + twos
-            return gaps <= len(jokers) + len(twos)
-
-        return False 
+            if len(indices) == len(set(indices)): # Check for duplicates
+                gaps = (indices[-1] - indices[0] + 1) - len(indices)
+                if gaps <= n_wildcards:
+                    return True # Success! The meld is valid in this configuration.
+    
+        return False
     
     def check_potzo(self, player_id):
         """
